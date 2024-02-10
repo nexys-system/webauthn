@@ -1,5 +1,7 @@
 # WebAuthn
 
+[![Test](https://github.com/nexys-system/webauthn/actions/workflows/test.yml/badge.svg)](https://github.com/nexys-system/webauthn/actions/workflows/test.yml)
+
 minimalistic implementation of webauthn
 
 ## get started
