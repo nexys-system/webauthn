@@ -1,0 +1,30 @@
+{
+  "name": "@nexys/webauthn",
+  "license": "MIT",
+  "version": "0.0.0",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nexys-system/webauthn"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test",
+    "start": "node dist/server.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/*"
+  ],
+  "dependencies": {
+    "cose-to-jwk": "^1.1.0",
+    "jwk-to-pem": "^2.0.5"
+  },
+  "devDependencies": {
+    "@types/cbor": "^6.0.0",
+    "@types/jwk-to-pem": "^2.0.3",
+    "@types/node": "^20.11.17",
+    "typescript": "^5.3.3"
+  }
+}

@@ -1,0 +1,230 @@
+<html>
+  <body>
+    <h3>WebAuthn</h3>
+
+    <ul>
+      <li>
+        <button onClick="login('123e4567-e89b-12d3-a456-426614174000')">
+          Login
+        </button>
+      </li>
+      <li>
+        <button onClick="register('123e4567-e89b-12d3-a456-426614174000')">
+          Register
+        </button>
+      </li>
+    </ul>
+
+    <script>
+      function uuidToUint8Array(uuid) {
+        // Remove all hyphens from the UUID
+        const hexNoDashes = uuid.replace(/-/g, "");
+        // Make sure the cleaned hex string is of length 32
+        if (hexNoDashes.length !== 32) {
+          throw new Error("Invalid UUID format");
+        }
+
+        const arrayBuffer = new Uint8Array(16);
+        for (let i = 0, j = 0; i < 32; i += 2, j++) {
+          // Convert each pair of hexadecimal characters to a byte
+          arrayBuffer[j] = parseInt(hexNoDashes.substr(i, 2), 16);
+        }
+
+        return arrayBuffer;
+      }
+      function arrayBufferToBase64(buffer) {
+        let binary = "";
+        const bytes = new Uint8Array(buffer);
+        const len = bytes.byteLength;
+        for (let i = 0; i < len; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        // Convert binary data to a base64 string
+        const base64 = window.btoa(binary);
+        // Optionally, you might want to make the base64 string URL-safe
+        // by replacing "+" with "-", "/" with "_", and stripping "=" padding
+        return base64
+          .replace(/\+/g, "-")
+          .replace(/\//g, "_")
+          .replace(/=+$/, "");
+      }
+
+      function base64ToUint8Array(base64) {
+        // Convert base64 string to a binary string
+        const binaryString = window.atob(base64);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes;
+      }
+
+      function base64UrlToUint8Array(base64Url) {
+        // Replace Base64URL characters with Base64 characters
+        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+        // Decode Base64 string to binary string
+        const binaryString = atob(base64);
+        // Create a Uint8Array from the binary string
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes;
+      }
+
+      const getPreRegister = async (userId) => {
+        const r = await fetch("/preregister", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ userId }), // send user id
+        });
+        return r.json();
+      };
+
+      const getPreLogin = async (userId) => {
+        const r = await fetch("/prelogin", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ userId }), // send user id
+        });
+        const j = await r.json();
+
+        if (!r.ok && "error" in j) {
+          alert("error: " + j.error);
+          return;
+        }
+
+        return j;
+      };
+
+      const login = async (userId) => {
+        const { challenge, credentialId } = await getPreLogin(userId);
+        console.log({ challenge, credentialId });
+
+        const newCredentialInfo = await navigator.credentials.get({
+          publicKey: {
+            challenge: base64UrlToUint8Array(challenge),
+            allowCredentials: [
+              {
+                id: base64UrlToUint8Array(credentialId), // Uint8Array.from(atob(credentialId), (c) => c.charCodeAt(0)), // Decode the credential ID
+                type: "public-key",
+                transports: ["internal"],
+                //  transports: ["internal"], // Optional, specifies allowed transports
+              },
+
+              // Include other allowed credentials here
+            ],
+            authenticatorSelection: {
+              authenticatorAttachment: "platform", // Specify preference for external authenticators
+              requireResidentKey: false,
+              userVerification: "preferred",
+            },
+            userVerification: "preferred", // or 'required' or 'discouraged'
+            timeout: 60000, // Optional: adjust according to your needs
+          },
+        });
+
+        const authenticatorData = arrayBufferToBase64(
+          newCredentialInfo.response.authenticatorData
+        );
+
+        const clientDataJSON = arrayBufferToBase64(
+          newCredentialInfo.response.clientDataJSON
+        );
+
+        const signature = arrayBufferToBase64(
+          newCredentialInfo.response.signature
+        );
+
+        console.log({
+          credentialId,
+          authenticatorData,
+          clientDataJSON,
+          signature,
+        });
+        const respose = await fetch("/login", {
+          method: "POST",
+          body: JSON.stringify({
+            credentialId,
+            authenticatorData,
+            clientDataJSON,
+            signature,
+          }),
+          headers: { "content-type": "application/json" },
+        });
+
+        const j = await respose.json();
+
+        console.log("j", j);
+      };
+
+      const register = async (userId) => {
+        //getChallenge();
+        const { challenge, rp, user } = await getPreRegister(userId);
+
+        const publicKey = {
+          // Relying Party (your service)
+          rp,
+          // User Information
+          user: {
+            id: uuidToUint8Array(user.id),
+            name: user.name,
+            displayName: user.displayName,
+          },
+          // Cryptographic challenge from the server
+          challenge: base64UrlToUint8Array(challenge),
+          // Public key parameters
+          pubKeyCredParams: [
+            { alg: -7, type: "public-key" }, // ES256
+            { alg: -257, type: "public-key" }, // RS256
+          ], // Registration timeout
+          timeout: 60000, // 60 seconds
+          // Attestation preference
+          attestation: "direct",
+          // Exclude existing credentials to prevent re-registration
+          excludeCredentials: [], // Use this to exclude already registered credentials
+          authenticatorSelection: {
+            authenticatorAttachment: "platform", // for now platform, in a second step add phones and external keys
+            requireResidentKey: false,
+            userVerification: "preferred",
+          },
+        };
+
+        // Request the creation of new credentials
+        const newCredentialInfo = await navigator.credentials.create({
+          publicKey,
+        });
+
+        const credentialId = newCredentialInfo.id;
+        // const publicKey = new TextDecoder().decode(
+        //  newCredentialInfo.response.clientDataJSON
+        //); // For demonstration; actual extraction differs
+        const attestationObject = arrayBufferToBase64(
+          newCredentialInfo.response.attestationObject
+        );
+        const clientDataJSON = arrayBufferToBase64(
+          newCredentialInfo.response.clientDataJSON
+        );
+
+        console.log({ credentialId, attestationObject, clientDataJSON });
+
+        const respose = await fetch("/register", {
+          method: "POST",
+          body: JSON.stringify({
+            credentialId,
+            attestationObject,
+            clientDataJSON,
+          }),
+          headers: { "content-type": "application/json" },
+        });
+
+        const j = await respose.json();
+
+        console.log("j", j);
+      };
+      //main();
+      //  login();
+    </script>
+  </body>
+</html>

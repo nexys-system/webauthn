@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "es2016",
+    "lib": ["es2016"], // Include "node" for Node.js type definitions, "dom" can be omitted if not using DOM APIs
+    "module": "ES2020", // Best suited for Node.js if using ES6 modules, adjust according to your project needs
+    "moduleResolution": "Node", // Explicitly set to "Node" for Node.js module resolution strategy
+    "outDir": "./dist",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true
+  }
+}
