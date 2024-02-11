@@ -31,18 +31,18 @@ const parseAuthData = (
   credId: Buffer;
   coseKeyBuffer: Buffer;
 } => {
-  const rpIdHash = authDataBuffer.slice(0, 32);
-  const flagsBuf = authDataBuffer.slice(32, 33);
+  const rpIdHash = authDataBuffer.subarray(0, 32);
+  const flagsBuf = authDataBuffer.subarray(32, 33);
   const flags = flagsBuf[0];
-  const counterBuf = authDataBuffer.slice(33, 37);
+  const counterBuf = authDataBuffer.subarray(33, 37);
   const counter = counterBuf.readUInt32BE(0);
-  const aaguid = authDataBuffer.slice(37, 53);
-  const credIdLenBuf = authDataBuffer.slice(53, 55);
+  const aaguid = authDataBuffer.subarray(37, 53);
+  const credIdLenBuf = authDataBuffer.subarray(53, 55);
   const credIdLen = credIdLenBuf.readUInt16BE(0);
-  const credId = authDataBuffer.slice(55, 55 + credIdLen);
+  const credId = authDataBuffer.subarray(55, 55 + credIdLen);
 
   // The rest is the COSE key
-  const coseKeyBuffer = authDataBuffer.slice(55 + credIdLen);
+  const coseKeyBuffer = authDataBuffer.subarray(55 + credIdLen);
 
   return {
     rpIdHash,

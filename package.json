@@ -9,6 +9,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "buildPackage": "tsc -p tsconfig.package.json",
     "test": "node --test",
     "start": "node dist/server.js"
   },
