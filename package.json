@@ -17,8 +17,8 @@
     "test": "node --test",
     "start": "node dist/server.js"
   },
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/lib/main.js",
+  "types": "dist/lib/main.d.ts",
   "files": [
     "dist/*"
   ],

@@ -60,19 +60,34 @@ const verifySignature = (
   signature: Buffer,
   pemPublicKey: string
 ): boolean => {
-  // Hash the clientDataJSON
-  const clientDataHash = crypto
-    .createHash("SHA256")
-    .update(Buffer.from(clientDataJSON, "base64"))
-    .digest();
+  console.log("verifySignature called");
+  
+  try {
+    // Hash the clientDataJSON
+    console.log("Hashing clientDataJSON...");
+    const clientDataHash = crypto
+      .createHash("SHA256")
+      .update(Buffer.from(clientDataJSON, "base64"))
+      .digest();
 
-  // Prepare data for verification
-  const signedData = Buffer.concat([authData, clientDataHash]);
+    // Prepare data for verification
+    console.log("Preparing signed data...");
+    const signedData = Buffer.concat([authData, clientDataHash]);
 
-  // Verify the signature using the public key
-  const verifier = crypto.createVerify("SHA256");
-  verifier.update(signedData);
-  return verifier.verify(pemPublicKey, signature);
+    // Verify the signature using the public key
+    console.log("Creating verifier...");
+    const verifier = crypto.createVerify("SHA256");
+    verifier.update(signedData);
+    
+    console.log("Verifying signature...");
+    const result = verifier.verify(pemPublicKey, signature);
+    console.log("Signature verification result:", result);
+    
+    return result;
+  } catch (error) {
+    console.error("verifySignature error:", error);
+    throw error;
+  }
 };
 
 export const verify = async (
@@ -80,17 +95,31 @@ export const verify = async (
   clientDataJSON: string
 ): Promise<{ challenge: string; isValidSignature: boolean; pem: string }> => {
   const { fmt, attStmt, authData } = await decodeAttestationObject<{
-    fmt: "packed" | "fido-u2f";
-    attStmt: { sig: Buffer };
+    fmt: "packed" | "fido-u2f" | "none" | string;
+    attStmt: { sig?: Buffer };
     authData: Buffer;
   }>(attestationObject);
 
-  if (fmt !== "packed") {
-    throw Error("fmt is wrong");
+  console.log("WebAuthn format detected:", fmt);
+  console.log("AttStmt:", attStmt);
+  
+  if (fmt !== "packed" && fmt !== "fido-u2f" && fmt !== "none") {
+    throw Error(`Unsupported WebAuthn format: ${fmt}. Supported formats: packed, fido-u2f, none`);
   }
 
-  // get signature
-  const { sig: signature } = attStmt; // For packed format, the signature is directly under 'sig'
+  // get signature based on format
+  let signature: Buffer;
+  
+  if (fmt === "packed") {
+    signature = attStmt.sig || Buffer.alloc(0); // For packed format, the signature is directly under 'sig'
+  } else if (fmt === "fido-u2f") {
+    signature = attStmt.sig || Buffer.alloc(0); // FIDO U2F also uses 'sig'
+  } else if (fmt === "none") {
+    // "none" format doesn't have a signature for verification
+    signature = Buffer.alloc(0);
+  } else {
+    throw Error(`Unknown format handling for: ${fmt}`);
+  }
 
   //console.log(signature);
 
@@ -99,7 +128,8 @@ export const verify = async (
   const jwk = coseToJwk(coseKeyBuffer);
   const pem = jwkToPem(jwk);
 
-  const isValidSignature = verifySignature(
+  // For "none" format, we skip signature verification
+  const isValidSignature = fmt === "none" ? true : verifySignature(
     authData,
     clientDataJSON,
     signature,
@@ -121,13 +151,29 @@ export const verifyLogin = async (
   signature: string,
   userPublicKey: string
 ): Promise<boolean> => {
-  const authenticatorDataBuffer = Buffer.from(authenticatorData, "base64");
-  const signatureBuffer = Buffer.from(signature, "base64");
+  console.log("verifyLogin called with:", {
+    authenticatorData: authenticatorData.substring(0, 50) + "...",
+    clientDataJSON: clientDataJSON.substring(0, 50) + "...",
+    signature: signature.substring(0, 50) + "...",
+    userPublicKey: userPublicKey.substring(0, 50) + "...",
+  });
 
-  return verifySignature(
-    authenticatorDataBuffer,
-    clientDataJSON,
-    signatureBuffer,
-    userPublicKey
-  );
+  try {
+    const authenticatorDataBuffer = Buffer.from(authenticatorData, "base64");
+    const signatureBuffer = Buffer.from(signature, "base64");
+
+    console.log("About to call verifySignature...");
+    const result = verifySignature(
+      authenticatorDataBuffer,
+      clientDataJSON,
+      signatureBuffer,
+      userPublicKey
+    );
+    console.log("verifySignature result:", result);
+    
+    return result;
+  } catch (error) {
+    console.error("verifyLogin error:", error);
+    throw error;
+  }
 };

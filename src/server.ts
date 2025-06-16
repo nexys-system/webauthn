@@ -1,12 +1,11 @@
-import http from "http";
 import fs from "fs";
+import http from "http";
 import {
   generateChallenge,
   toUrlEncodedBase64,
   verify,
   verifyLogin,
 } from "./lib/main.js";
-import { sign } from "crypto";
 
 // challenge storage
 const challenges: Map<string, string> = new Map(); //  challenge => userId
